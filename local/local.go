@@ -43,6 +43,9 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	n, err := io.Copy(file, cr)
 	if err != nil {
 		return nil, 0, err
+	} else if n == 0 {
+		os.Remove(tempFilePath)
+		return nil, 0, io.EOF
 	}
 
 	hash := cr.Hash()
@@ -51,9 +54,11 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	// if filePath is already exists, no need to rename the file
 	// we just have to remove the temporary file
 	_, err = os.Stat(filePath)
-	if !os.IsNotExist(err) {
+	if os.IsExist(err) {
 		os.Remove(tempFilePath)
 		return hash, n, nil
+	} else if os.IsNotExist(err) {
+		// ignore this as we are about to create a new file
 	} else if err != nil {
 		return nil, n, err
 	}

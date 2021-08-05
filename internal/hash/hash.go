@@ -58,6 +58,8 @@ func (r *Reader) Read(b []byte) (int, error) {
 	n, err := r.r.Read(b)
 	if n > 0 {
 		r.hasher.Write(b[:n])
+	} else if n == 0 {
+		return 0, io.EOF
 	}
 
 	return n, err

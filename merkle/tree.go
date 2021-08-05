@@ -10,16 +10,27 @@ import (
 // please look into the following diagram
 // https://excalidraw.com/#json=6196713521938432,ktPKmwIweKVouqHgQCCJjA
 
+type ChainFunc func(parent, child []byte, isData bool, side BranchSide) ([]byte, error)
+
+type BranchSide int
+
+const (
+	_ BranchSide = iota
+	LeftSide
+	RightSide
+)
+
 type Node struct {
 	Left   *Node
 	Right  *Node
 	height int64
 
-	Value int
+	Value []byte
 }
 
 type Tree struct {
-	stack []*Node
+	stack     []*Node
+	chainFunc ChainFunc
 }
 
 func (t *Tree) stackPush(node *Node) {
@@ -38,7 +49,7 @@ func (t *Tree) stackPop() *Node {
 	return node
 }
 
-func (t *Tree) Add(newNode *Node) {
+func (t *Tree) Add(value []byte) error {
 	var current *Node
 	var drillRequired bool
 
@@ -98,13 +109,45 @@ func (t *Tree) Add(newNode *Node) {
 		}
 	}
 
+	dataNode := &Node{
+		Value: value,
+	}
+
+	var side BranchSide
 	if current.Left == nil {
-		current.Left = newNode
+		current.Left = dataNode
+		side = LeftSide
 	} else if current.Right == nil {
-		current.Right = newNode
+		current.Right = dataNode
+		side = RightSide
 	}
 
 	t.stackPush(current)
+
+	var err error
+	if t.chainFunc != nil {
+		err = t.callChains(dataNode.Value, side)
+	}
+	return err
+}
+
+func (t *Tree) callChains(value []byte, side BranchSide) (err error) {
+	isData := true
+	for i := len(t.stack) - 1; i >= 0; i-- {
+		current := t.stack[i]
+		value, err = t.chainFunc(current.Value, value, isData, side)
+		if err != nil {
+			return err
+		}
+		current.Value = value
+		isData = false
+		side = RightSide
+	}
+	return
+}
+
+func (t *Tree) lastValue() []byte {
+	return t.stack[0].Value
 }
 
 func (t *Tree) String() string {
@@ -113,8 +156,9 @@ func (t *Tree) String() string {
 	return buffer.String()
 }
 
-func NewTree() *Tree {
+func NewTree(chainFunc ChainFunc) *Tree {
 	return &Tree{
+		chainFunc: chainFunc,
 		stack: []*Node{
 			{height: 1},
 		},
