@@ -2,60 +2,13 @@ package merkle
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"io"
+	"os"
 
 	"github.com/alinz/storage.go"
+	"github.com/alinz/storage.go/internal/hash"
 )
-
-type Meta struct {
-	Left  []byte // contains 32 bytes
-	Right []byte // contains 32 bytes
-	done  bool
-}
-
-func newMeta() *Meta {
-	return &Meta{
-		Left:  make([]byte, 32),
-		Right: make([]byte, 32),
-	}
-}
-
-func (m *Meta) Read(b []byte) (int, error) {
-	if m.done {
-		return 0, io.EOF
-	}
-
-	n := len(b)
-	if n < 64 {
-		return 0, io.ErrShortBuffer
-	}
-
-	copy(b[:32], m.Left)
-	copy(b[32:], m.Right)
-	m.done = true
-
-	return 64, nil
-}
-
-func (m *Meta) Write(b []byte) (int, error) {
-	if len(b) != 64 {
-		return 0, io.ErrShortWrite
-	}
-
-	copy(m.Left, b[:32])
-	copy(m.Right, b[32:])
-
-	return 64, nil
-}
-
-func (m *Meta) Hash() []byte {
-	hasher := sha256.New()
-	hasher.Write(m.Left)
-	hasher.Write(m.Right)
-	return hasher.Sum(nil)
-}
 
 type Storage struct {
 	blockSize int64
@@ -69,11 +22,14 @@ var _ storage.Getter = (*Storage)(nil)
 
 func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	var totalSize int64
+	var totalBlocks int64
 
 	tree := NewTree(s.rebalance)
 
 	for {
-		hashValue, n, err := s.putter.Put(ctx, io.LimitReader(r, s.blockSize))
+		dataNode := NewDataNode(io.LimitReader(r, s.blockSize))
+		// nr := io.LimitReader(r, s.blockSize)
+		hashValue, n, err := s.putter.Put(ctx, dataNode)
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -82,6 +38,7 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 			break
 		}
 
+		totalBlocks++
 		totalSize += n
 		err = tree.Add(hashValue)
 		if err != nil {
@@ -89,71 +46,114 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 		}
 	}
 
-	return tree.lastValue(), totalSize, nil
+	return tree.lastValue(), totalSize - totalBlocks, nil
 }
 
-func (s *Storage) Get(ctx context.Context, hash []byte) (io.ReadCloser, error) {
+func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, error) {
 	pr, pw := io.Pipe()
 
 	go func() {
-		_ = pw
+		stack := NewHashStack()
+
+		walkTree := func() {
+			hashValue = stack.Pop()
+
+			hash.Print(hashValue, os.Stdout, " <- root")
+
+			// need to load the content to detect whether is Meta or Data
+			r, err := s.getter.Get(ctx, hashValue)
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+			defer r.Close()
+
+			reader, nodeType, err := ParseNode(r)
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			switch nodeType {
+			case MetaType:
+				meta, err := ParseMetaNode(reader)
+				if err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+
+				hash.Print(meta.left, os.Stdout, " <- left")
+				hash.Print(meta.right, os.Stdout, " <- right")
+
+				if meta.HasRight() {
+					stack.Push(meta.right)
+				}
+
+				if meta.HasLeft() {
+					stack.Push(meta.left)
+				}
+
+			case DataType:
+				reader, _ = ParseDataNode(reader)
+				_, err = io.Copy(pw, reader)
+				if err != nil {
+					pw.CloseWithError(err)
+					return
+				}
+			}
+		}
+
+		stack.Push(hashValue)
+		for !stack.IsEmpty() {
+			walkTree()
+		}
+
+		pw.Close()
 	}()
 
 	return pr, nil
 }
 
 func (s *Storage) rebalance(parent, child []byte, isChildData bool, side BranchSide) ([]byte, error) {
-	parentMeta, err := s.loadMeta(parent)
-	if err != nil {
-		return nil, err
-	}
+	ctx := context.Background()
 
-	if isChildData {
-		switch side {
-		case LeftSide:
-			copy(parentMeta.Left, child)
-		case RightSide:
-			copy(parentMeta.Right, child)
+	meta := NewMetaNode()
+
+	{
+		metaReader, err := s.getter.Get(ctx, parent)
+		if errors.Is(err, storage.ErrNotFound) {
+			// ignore
+		} else if err != nil {
+			return nil, err
+		} else {
+			_, err = io.Copy(meta, metaReader)
+			metaReader.Close()
+			if err != nil {
+				return nil, err
+			}
 		}
-	} else {
-		copy(parentMeta.Right, child)
 	}
 
-	err = s.remover.Remove(context.Background(), parent)
-	if errors.Is(err, storage.ErrNotFound) {
-		// ignore this situation, as parent might not be created yet
-	} else if err != nil {
-		return nil, err
+	switch side {
+	case LeftSide:
+		copy(meta.left, child)
+	case RightSide:
+		copy(meta.right, child)
 	}
 
-	newParent, _, err := s.putter.Put(context.Background(), parentMeta)
+	// err := s.remover.Remove(context.Background(), parent)
+	// if errors.Is(err, storage.ErrNotFound) {
+	// 	// ignore this situation, as parent might not be created yet
+	// } else if err != nil {
+	// 	return nil, err
+	// }
+
+	newParent, _, err := s.putter.Put(context.Background(), meta)
 	if err != nil {
 		return nil, err
 	}
 
 	return newParent, nil
-}
-
-// loadMeta tries to load Meta information from underneath storage
-// if meta couldn't be loaded because of NotFound error, then an empty
-// Meta will be returned
-func (s *Storage) loadMeta(hash []byte) (*Meta, error) {
-	r, err := s.getter.Get(context.Background(), hash)
-	if errors.Is(err, storage.ErrNotFound) {
-		return newMeta(), nil
-	} else if err != nil {
-		return nil, err
-	}
-	defer r.Close()
-
-	meta := newMeta()
-
-	_, err = io.Copy(meta, r)
-	if err != nil {
-		return nil, err
-	}
-
-	return meta, nil
 }
 
 func New(

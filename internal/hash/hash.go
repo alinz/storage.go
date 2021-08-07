@@ -75,3 +75,9 @@ func NewReader(r io.Reader) *Reader {
 		hasher: sha256.New(),
 	}
 }
+
+func Print(hash []byte, w io.Writer, values ...interface{}) {
+	value := Value(hash)
+	values = append([]interface{}{value.String()}, values...)
+	fmt.Fprintln(w, values...)
+}

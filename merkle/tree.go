@@ -52,6 +52,7 @@ func (t *Tree) stackPop() *Node {
 func (t *Tree) Add(value []byte) error {
 	var current *Node
 	var drillRequired bool
+	var err error
 
 	for {
 		current = t.stackPop()
@@ -62,11 +63,15 @@ func (t *Tree) Add(value []byte) error {
 
 		if bothFull && stackEmpty {
 			// grow the tree
-			current = &Node{
+			newCurrent := &Node{
 				Left:   current,
 				height: current.height + 1,
 			}
-			t.stackPush(current)
+			t.stackPush(newCurrent)
+			newCurrent.Value, err = t.chainFunc(nil, current.Value, false, LeftSide)
+			if err != nil {
+				return err
+			}
 			drillRequired = true
 			continue
 		}
@@ -124,7 +129,6 @@ func (t *Tree) Add(value []byte) error {
 
 	t.stackPush(current)
 
-	var err error
 	if t.chainFunc != nil {
 		err = t.callChains(dataNode.Value, side)
 	}

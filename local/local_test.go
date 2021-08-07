@@ -12,8 +12,7 @@ import (
 )
 
 func TestLocalStorage(t *testing.T) {
-	tempPath, cleanupTempPath := tests.CreateTempFolder(t)
-	defer cleanupTempPath()
+	tempPath := t.TempDir()
 
 	local := local.New(tempPath)
 
@@ -34,6 +33,6 @@ func TestLocalStorage(t *testing.T) {
 		defer r.Close()
 
 		contentReader.Reset(content)
-		assert.True(t, tests.EqualReaders(contentReader, r))
+		assert.NoError(t, tests.EqualReaders(contentReader, r))
 	})
 }
