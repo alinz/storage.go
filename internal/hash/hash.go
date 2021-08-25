@@ -1,18 +1,17 @@
 package hash
 
 import (
-	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"io"
+	"strings"
 )
 
 const (
-	hashName         = "sha256"
-	hashHeader       = hashName + "-"
-	hashHeaderLength = len(hashHeader)
-	doubleQuote      = "\""
+	hashName   = "sha256"
+	hashHeader = hashName + "-"
 )
 
 type Value []byte
@@ -21,26 +20,9 @@ func (v *Value) String() string {
 	return fmt.Sprintf("%s-%x", hashName, []byte(*v))
 }
 
-func (v *Value) MarshalJSON() ([]byte, error) {
-	var buffer bytes.Buffer
-
-	buffer.WriteString(doubleQuote)
-	buffer.WriteString(v.String())
-	buffer.WriteString(doubleQuote)
-
-	return buffer.Bytes(), nil
-}
-
-func (v *Value) UnmarshalJSON(data []byte) error {
-	// need to remove quotes from data
-	data = bytes.Trim(data, doubleQuote)
-
-	if !bytes.HasPrefix(data, []byte(hashHeader)) {
-		return fmt.Errorf("wrong format")
-	}
-
-	*v = bytes.Trim(data, hashHeader)
-	return nil
+func (v *Value) Short() string {
+	val := v.String()
+	return val[len(val)-5:]
 }
 
 func Bytes(value []byte) Value {
@@ -76,8 +58,21 @@ func NewReader(r io.Reader) *Reader {
 	}
 }
 
+func ParseValueFromString(value string) (Value, error) {
+	return hex.DecodeString(strings.Replace(value, hashHeader, "", 1))
+}
+
 func Print(hash []byte, w io.Writer, values ...interface{}) {
 	value := Value(hash)
-	values = append([]interface{}{value.String()}, values...)
+	values = append([]interface{}{value.Short()}, values...)
 	fmt.Fprintln(w, values...)
+}
+
+func Format(value []byte) string {
+	if value == nil {
+		return "nil"
+	}
+
+	v := Value(value)
+	return v.String()
 }

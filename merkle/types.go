@@ -8,40 +8,54 @@ import (
 	"io"
 )
 
-type Flagger interface {
-	io.ReadWriter
-}
-
 var (
-	ErrUnknownNodeType = errors.New("unknown node type")
-	ErrEmptyNode       = errors.New("empty node")
+	ErrUnknownFileType = errors.New("unknown node type")
 )
 
-type NodeType byte
+type FileType byte
+
+func (ft FileType) String() string {
+	switch ft {
+	case MetaType:
+		return "MetaType"
+	case DataType:
+		return "DataType"
+	default:
+		return "unknown type"
+	}
+}
 
 var empty32Bytes = make([]byte, 32)
 
 const (
-	_ NodeType = iota
+	_ FileType = iota
 	MetaType
 	DataType
 )
 
-type MetaNode struct {
+type MetaFile struct {
 	left     []byte // contains 32 bytes
 	right    []byte // contains 32 bytes
 	readDone bool
 }
 
-func (m *MetaNode) HasLeft() bool {
+func (m *MetaFile) Left() []byte {
+	return m.left
+}
+
+func (m *MetaFile) Right() []byte {
+	return m.right
+}
+
+func (m *MetaFile) HasLeft() bool {
 	return !bytes.Equal(empty32Bytes, m.left)
 }
 
-func (m *MetaNode) HasRight() bool {
+func (m *MetaFile) HasRight() bool {
 	return !bytes.Equal(empty32Bytes, m.right)
 }
 
-func (m *MetaNode) Read(b []byte) (int, error) {
+func (m *MetaFile) Read(b []byte) (int, error) {
 	if m.readDone {
 		return 0, io.EOF
 	}
@@ -59,13 +73,13 @@ func (m *MetaNode) Read(b []byte) (int, error) {
 	return 65, nil
 }
 
-func (m *MetaNode) Write(b []byte) (int, error) {
+func (m *MetaFile) Write(b []byte) (int, error) {
 	if len(b) != 65 {
 		return 0, io.ErrShortWrite
 	}
 
 	if b[0] != byte(MetaType) {
-		return 0, ErrUnknownNodeType
+		return 0, ErrUnknownFileType
 	}
 
 	copy(m.left, b[1:33])
@@ -74,7 +88,7 @@ func (m *MetaNode) Write(b []byte) (int, error) {
 	return 65, nil
 }
 
-func (m *MetaNode) Hash() []byte {
+func (m *MetaFile) Hash() []byte {
 	hasher := sha256.New()
 	hasher.Write([]byte{byte(MetaType)})
 	hasher.Write(m.left)
@@ -82,19 +96,19 @@ func (m *MetaNode) Hash() []byte {
 	return hasher.Sum(nil)
 }
 
-func NewMetaNode() *MetaNode {
-	return &MetaNode{
+func NewMetaFile() *MetaFile {
+	return &MetaFile{
 		left:  make([]byte, 32),
 		right: make([]byte, 32),
 	}
 }
 
-type DataNode struct {
+type DataFile struct {
 	readDone bool
 	r        *bufio.Reader
 }
 
-func (d *DataNode) Read(b []byte) (int, error) {
+func (d *DataFile) Read(b []byte) (int, error) {
 	if !d.readDone {
 		peek, err := d.r.Peek(1)
 		if len(peek) == 0 || err == io.EOF {
@@ -109,13 +123,13 @@ func (d *DataNode) Read(b []byte) (int, error) {
 	return d.r.Read(b)
 }
 
-func NewDataNode(r io.Reader) *DataNode {
-	return &DataNode{
+func NewDataFile(r io.Reader) *DataFile {
+	return &DataFile{
 		r: bufio.NewReader(r),
 	}
 }
 
-func ParseNode(r io.Reader) (io.Reader, NodeType, error) {
+func DetectFileType(r io.Reader) (io.Reader, FileType, error) {
 	br := bufio.NewReader(r)
 
 	b, err := br.Peek(1)
@@ -123,20 +137,20 @@ func ParseNode(r io.Reader) (io.Reader, NodeType, error) {
 		return nil, 0, err
 	}
 
-	nodeType := NodeType(b[0])
+	FileType := FileType(b[0])
 
-	switch nodeType {
+	switch FileType {
 	case MetaType:
 	case DataType:
 	default:
-		return nil, 0, ErrUnknownNodeType
+		return nil, 0, ErrUnknownFileType
 	}
 
-	return br, nodeType, nil
+	return br, FileType, nil
 }
 
-func ParseMetaNode(r io.Reader) (*MetaNode, error) {
-	meta := NewMetaNode()
+func ParseMetaFile(r io.Reader) (*MetaFile, error) {
+	meta := NewMetaFile()
 	_, err := io.Copy(meta, r)
 	if err != nil {
 		return nil, err
@@ -144,7 +158,7 @@ func ParseMetaNode(r io.Reader) (*MetaNode, error) {
 	return meta, nil
 }
 
-func ParseDataNode(r io.Reader) (io.Reader, error) {
+func ParseDataFile(r io.Reader) (io.Reader, error) {
 	b := []byte{0}
 	n, err := r.Read(b)
 
@@ -157,7 +171,7 @@ func ParseDataNode(r io.Reader) (io.Reader, error) {
 	}
 
 	if b[0] != byte(DataType) {
-		return nil, ErrUnknownNodeType
+		return nil, ErrUnknownFileType
 	}
 
 	return r, nil

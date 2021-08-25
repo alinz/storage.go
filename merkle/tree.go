@@ -6,16 +6,27 @@ import (
 	"io"
 )
 
+type Callback func(parent []byte, child []byte, side NodeSide) ([]byte, error)
+
 // for more infi,
 // please look into the following diagram
 // https://excalidraw.com/#json=6196713521938432,ktPKmwIweKVouqHgQCCJjA
 
-type ChainFunc func(parent, child []byte, isData bool, side BranchSide) ([]byte, error)
+type NodeSide byte
 
-type BranchSide int
+func (ns NodeSide) String() string {
+	switch ns {
+	case LeftSide:
+		return "L"
+	case RightSide:
+		return "R"
+	default:
+		return "?" // means node is ROOT
+	}
+}
 
 const (
-	_ BranchSide = iota
+	_ NodeSide = iota
 	LeftSide
 	RightSide
 )
@@ -24,20 +35,25 @@ type Node struct {
 	Left   *Node
 	Right  *Node
 	height int64
+	side   NodeSide
 
 	Value []byte
 }
 
 type Tree struct {
-	stack     []*Node
-	chainFunc ChainFunc
+	callback Callback
+	stack    []*Node
 }
 
-func (t *Tree) stackPush(node *Node) {
+func (t *Tree) root() *Node {
+	return t.stack[0]
+}
+
+func (t *Tree) push(node *Node) {
 	t.stack = append(t.stack, node)
 }
 
-func (t *Tree) stackPop() *Node {
+func (t *Tree) pop() *Node {
 	n := len(t.stack)
 	if n == 0 {
 		return nil
@@ -49,109 +65,113 @@ func (t *Tree) stackPop() *Node {
 	return node
 }
 
+func (t *Tree) peek() *Node {
+	n := len(t.stack)
+	if n == 0 {
+		return nil
+	}
+
+	return t.stack[n-1]
+}
+
 func (t *Tree) Add(value []byte) error {
-	var current *Node
-	var drillRequired bool
-	var err error
+	err := t.grow()
+	if err != nil {
+		return err
+	}
 
+	current := t.peek()
+
+	newNode := &Node{
+		height: current.height - 1,
+		Value:  value,
+	}
+
+	if current.Left == nil {
+		newNode.side = LeftSide
+		current.Left = newNode
+	} else if current.Right == nil {
+		newNode.side = RightSide
+		current.Right = newNode
+	}
+
+	return t.callCallback(newNode)
+}
+
+func (t *Tree) grow() (err error) {
 	for {
-		current = t.stackPop()
+		current := t.pop()
+		isCurrentData := current.height == 1
+		noMoreNodes := len(t.stack) == 0
 
-		bothFull := current.Left != nil && current.Right != nil
-		stackEmpty := len(t.stack) == 0
-		rightOnlyEmpty := current.Left != nil && current.Right == nil
+		if (current.Left == nil || current.Right == nil) && isCurrentData {
+			t.push(current)
+			break
+		}
 
-		if bothFull && stackEmpty {
-			// grow the tree
-			newCurrent := &Node{
-				Left:   current,
+		if noMoreNodes && current.Right != nil {
+			current.side = LeftSide
+
+			t.push(&Node{
 				height: current.height + 1,
-			}
-			t.stackPush(newCurrent)
-			newCurrent.Value, err = t.chainFunc(nil, current.Value, false, LeftSide)
+				Left:   current,
+			})
+
+			err = t.callCallback(current)
 			if err != nil {
 				return err
 			}
-			drillRequired = true
+
 			continue
 		}
 
-		if bothFull {
-			// need to check the parent
-			continue
-		}
+		if current.Right == nil {
+			// need to create one right
+			// and drill down all left to reach height == 1
+			doneRight := true
+			for {
+				t.push(current)
 
-		// create one Right node
-		// and then just Left nodes until reaches height 1
-		if drillRequired {
-			drillRequired = false
-
-			current.Right = &Node{
-				height: current.height - 1,
-			}
-			t.stackPush(current)
-
-			current = current.Right
-			for current.height != 1 {
-				current.Left = &Node{
-					height: current.height - 1,
+				if current.height == 1 {
+					break
 				}
-				t.stackPush(current)
-				current = current.Left
+
+				if doneRight {
+					doneRight = false
+					current.Right = &Node{
+						height: current.height - 1,
+						side:   RightSide,
+					}
+					current = current.Right
+				} else {
+					current.Left = &Node{
+						height: current.height - 1,
+						side:   LeftSide,
+					}
+					current = current.Left
+				}
 			}
-			t.stackPush(current)
+
 			continue
 		}
-
-		if rightOnlyEmpty && current.height != 1 {
-			drillRequired = true
-			t.stackPush(current)
-			continue
-		}
-
-		if current.height == 1 {
-			break
-		}
 	}
 
-	dataNode := &Node{
-		Value: value,
-	}
-
-	var side BranchSide
-	if current.Left == nil {
-		current.Left = dataNode
-		side = LeftSide
-	} else if current.Right == nil {
-		current.Right = dataNode
-		side = RightSide
-	}
-
-	t.stackPush(current)
-
-	if t.chainFunc != nil {
-		err = t.callChains(dataNode.Value, side)
-	}
-	return err
-}
-
-func (t *Tree) callChains(value []byte, side BranchSide) (err error) {
-	isData := true
-	for i := len(t.stack) - 1; i >= 0; i-- {
-		current := t.stack[i]
-		value, err = t.chainFunc(current.Value, value, isData, side)
-		if err != nil {
-			return err
-		}
-		current.Value = value
-		isData = false
-		side = RightSide
-	}
 	return
 }
 
-func (t *Tree) lastValue() []byte {
-	return t.stack[0].Value
+func (t *Tree) callCallback(child *Node) (err error) {
+	n := len(t.stack) - 1
+
+	for i := range t.stack {
+		parent := t.stack[n-i]
+		parent.Value, err = t.callback(parent.Value, child.Value, child.side)
+		if err != nil {
+			return err
+		}
+		child = parent
+	}
+
+	return nil
 }
 
 func (t *Tree) String() string {
@@ -160,9 +180,9 @@ func (t *Tree) String() string {
 	return buffer.String()
 }
 
-func NewTree(chainFunc ChainFunc) *Tree {
+func NewTree(callback Callback) *Tree {
 	return &Tree{
-		chainFunc: chainFunc,
+		callback: callback,
 		stack: []*Node{
 			{height: 1},
 		},
@@ -189,7 +209,7 @@ func print2DUtil(node *Node, space int, w io.Writer) {
 		fmt.Fprint(w, "  ")
 	}
 
-	fmt.Fprintf(w, "%d\n", node.Value)
+	fmt.Fprintf(w, "(%s)(%d)\n", node.side, node.Value)
 
 	print2DUtil(node.Left, space, w)
 }
