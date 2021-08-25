@@ -1,15 +1,8 @@
 package merkle
 
-import (
-	"fmt"
-
-	"github.com/alinz/storage.go/internal/hash"
-)
-
 type BytesStack [][]byte
 
 func (s *BytesStack) Push(value []byte) {
-	fmt.Println("PUSH <- ", hash.Format(value))
 	*s = append(*s, value)
 }
 
@@ -21,8 +14,6 @@ func (s *BytesStack) Pop() []byte {
 	index := n - 1
 	value := (*s)[index]
 	*s = (*s)[:index]
-
-	fmt.Println("POP -> ", hash.Format(value))
 
 	return value
 }

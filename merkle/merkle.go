@@ -20,7 +20,7 @@ var _ storage.Getter = (*Storage)(nil)
 
 func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	var totalSize int64
-	var totalBlocks int64
+	var totalHeaderSize int64
 	var actualSize int64
 
 	tree := NewTree(s.rebalance)
@@ -36,9 +36,9 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 			break
 		}
 
-		totalBlocks++
+		totalHeaderSize++
 		totalSize += n
-		actualSize = totalSize - totalBlocks
+		actualSize = totalSize - totalHeaderSize
 
 		err = tree.Add(hashValue)
 		if err != nil {

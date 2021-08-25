@@ -10,7 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/alinz/storage.go/internal/hash"
+	"github.com/alinz/storage.go/hash"
 	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/local"
 	"github.com/alinz/storage.go/merkle"

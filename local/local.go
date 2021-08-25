@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/alinz/storage.go"
-	"github.com/alinz/storage.go/internal/hash"
+	"github.com/alinz/storage.go/hash"
 )
 
 type Storage struct {

@@ -3,7 +3,7 @@ package hash_test
 import (
 	"testing"
 
-	"github.com/alinz/storage.go/internal/hash"
+	"github.com/alinz/storage.go/hash"
 	"github.com/stretchr/testify/assert"
 )
 
