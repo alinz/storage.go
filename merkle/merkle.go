@@ -10,9 +10,9 @@ import (
 )
 
 type Storage struct {
-	BlockSize int64
-	Putter    storage.Putter
-	Getter    storage.Getter
+	blockSize int64
+	putter    storage.Putter
+	getter    storage.Getter
 }
 
 var _ storage.Putter = (*Storage)(nil)
@@ -26,8 +26,8 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	tree := NewTree(s.rebalance)
 
 	for {
-		dataFile := NewDataFile(io.LimitReader(r, s.BlockSize))
-		hashValue, n, err := s.Putter.Put(ctx, dataFile)
+		dataFile := NewDataFile(io.LimitReader(r, s.blockSize))
+		hashValue, n, err := s.putter.Put(ctx, dataFile)
 		if errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -58,7 +58,7 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 	walk := func() error {
 		value := stack.Pop()
 
-		r, err := s.Getter.Get(ctx, value)
+		r, err := s.getter.Get(ctx, value)
 		if err != nil {
 			return err
 		}
@@ -131,7 +131,7 @@ func (s *Storage) rebalance(parent []byte, child []byte, side NodeSide) ([]byte,
 		copy(metaFile.right, child)
 	}
 
-	newValue, _, err := s.Putter.Put(ctx, metaFile)
+	newValue, _, err := s.putter.Put(ctx, metaFile)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +142,7 @@ func (s *Storage) rebalance(parent []byte, child []byte, side NodeSide) ([]byte,
 func (s *Storage) readMetaFile(ctx context.Context, key []byte) (*MetaFile, error) {
 	metaFile := NewMetaFile()
 
-	metaFileReader, err := s.Getter.Get(ctx, key)
+	metaFileReader, err := s.getter.Get(ctx, key)
 	if errors.Is(err, storage.ErrNotFound) {
 		// ignore
 		err = nil
@@ -154,4 +154,12 @@ func (s *Storage) readMetaFile(ctx context.Context, key []byte) (*MetaFile, erro
 	}
 
 	return metaFile, err
+}
+
+func New(getter storage.Getter, putter storage.Putter, blockSize int64) *Storage {
+	return &Storage{
+		getter:    getter,
+		putter:    putter,
+		blockSize: blockSize,
+	}
 }

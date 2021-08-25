@@ -129,11 +129,7 @@ func TestMerkleStoragePut(t *testing.T) {
 		fmt.Printf("Path for test %d: %s\n", i+1, path)
 
 		localStorage := local.New(path)
-		merkleStorage := &merkle.Storage{
-			BlockSize: testCase.blockSize,
-			Putter:    localStorage,
-			Getter:    localStorage,
-		}
+		merkleStorage := merkle.New(localStorage, localStorage, testCase.blockSize)
 
 		_, n, err := merkleStorage.Put(context.TODO(), bytes.NewReader(testCase.content))
 		assert.NoError(t, err)
@@ -172,11 +168,7 @@ func TestMerkleStoragePut(t *testing.T) {
 func TestMerkleStorage(t *testing.T) {
 	tempDir := t.TempDir()
 	localStorage := local.New(tempDir)
-	merkleStorage := &merkle.Storage{
-		BlockSize: 1,
-		Putter:    localStorage,
-		Getter:    localStorage,
-	}
+	merkleStorage := merkle.New(localStorage, localStorage, 1)
 
 	fmt.Println(tempDir)
 
