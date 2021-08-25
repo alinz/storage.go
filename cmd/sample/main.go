@@ -10,10 +10,13 @@ import (
 	"github.com/alinz/storage.go/merkle"
 )
 
-const BlockSize = 10
+const BlockSize = 1024 * 64
+const StoragePath = "./merkle_storage"
 
 func main() {
-	local := local.New(".")
+	os.MkdirAll(StoragePath, os.ModePerm)
+
+	local := local.New(StoragePath)
 	merkle := merkle.New(local, local, BlockSize)
 
 	switch os.Args[1] {
