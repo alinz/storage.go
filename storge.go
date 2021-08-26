@@ -21,3 +21,7 @@ type Getter interface {
 type Remover interface {
 	Remove(ctx context.Context, hash []byte) error
 }
+
+type Verifier interface {
+	Verify(ctx context.Context, hash []byte) (bool, error)
+}

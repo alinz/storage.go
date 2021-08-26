@@ -5,12 +5,13 @@ import (
 	"io"
 	"os"
 
-	"github.com/alinz/storage.go/hash"
+	"github.com/alinz/hash.go"
+
 	"github.com/alinz/storage.go/local"
 	"github.com/alinz/storage.go/merkle"
 )
 
-const BlockSize = 1024 * 64
+const BlockSize = 10
 const StoragePath = "./merkle_storage"
 
 func main() {
@@ -32,7 +33,7 @@ func main() {
 
 	case "get":
 		key := os.Args[2]
-		value, err := hash.ParseValueFromString(key)
+		value, err := hash.ValueFromString(key)
 		if err != nil {
 			println(err)
 			os.Exit(1)

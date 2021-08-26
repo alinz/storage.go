@@ -8,9 +8,9 @@ import (
 	"path"
 	"testing"
 
+	"github.com/alinz/hash.go"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/alinz/storage.go/hash"
 	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/local"
 	"github.com/alinz/storage.go/merkle"
@@ -118,6 +118,41 @@ func TestMerkleStoragePut(t *testing.T) {
 				},
 			},
 		},
+		{
+			blockSize: 10,
+			content:   []byte("hello world"),
+
+			writtenBytes: 11,
+
+			nodes: []TestNode{
+				// ROOT
+				{
+					id:       "sha256-2a62a61d2efac3ee39a4d883c6eba06d58143847cb96f3e1bcee2406975ff5ae",
+					fileType: merkle.MetaType,
+					left:     "sha256-fe7a3cfc8c5e2ce3334d6ede26904a9fc9f077c685883fe59f782d5cf7239450",
+					right:    "sha256-0000000000000000000000000000000000000000000000000000000000000000",
+				},
+				// ROOT -> LEFT
+				{
+					id:       "sha256-a49390d1e9b2b9333f847773aa0385ae40f6c7dfcd4d82ef21614fefb99b2de9",
+					fileType: merkle.MetaType,
+					left:     "sha256-fe7a3cfc8c5e2ce3334d6ede26904a9fc9f077c685883fe59f782d5cf7239450",
+					right:    "sha256-fa345019a25f632945e06308a3369199bffbed38ae888d91378857677bc544cd",
+				},
+				// ROOT -> LEFT -> LEFT
+				{
+					id:       "sha256-fe7a3cfc8c5e2ce3334d6ede26904a9fc9f077c685883fe59f782d5cf7239450",
+					fileType: merkle.DataType,
+					value:    []byte("hello worl"),
+				},
+				// ROOT -> LEFT -> RIGHT
+				{
+					id:       "sha256-fa345019a25f632945e06308a3369199bffbed38ae888d91378857677bc544cd",
+					fileType: merkle.DataType,
+					value:    []byte("d"),
+				},
+			},
+		},
 	}
 
 	ctx := context.Background()
@@ -136,7 +171,7 @@ func TestMerkleStoragePut(t *testing.T) {
 		assert.Equal(t, testCase.writtenBytes, n)
 
 		for _, node := range testCase.nodes {
-			currentHash, err := hash.ParseValueFromString(node.id)
+			currentHash, err := hash.ValueFromString(node.id)
 			assert.NoError(t, err)
 
 			func() {

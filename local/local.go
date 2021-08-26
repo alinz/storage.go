@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/alinz/hash.go"
+
 	"github.com/alinz/storage.go"
-	"github.com/alinz/storage.go/hash"
 )
 
 type Storage struct {

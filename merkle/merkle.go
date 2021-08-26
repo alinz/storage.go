@@ -116,6 +116,10 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 	return pr, nil
 }
 
+func (s *Storage) Verify(ctx context.Context, hashValue []byte) (bool, error) {
+	return false, nil
+}
+
 func (s *Storage) rebalance(parent []byte, child []byte, side NodeSide) ([]byte, error) {
 	ctx := context.Background()
 

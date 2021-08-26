@@ -1,6 +1,6 @@
 # Storage.go
 
-This is an abstraction on top of exisiting filesystem to provide tamperproff feature using merkle-tree. This package is only using standard library for code and using some extra library for testing.
+This is an abstraction on top of exisiting filesystem to provide tamperproff feature using merkle-tree.
 
 ## Features
 
@@ -20,9 +20,9 @@ type Remover interface {
 }
 ```
 
-- Optimized merkle tree for fast write using
+- Optimized merkle tree for fast write
 - Support io.Reader out of the box
-- Dedup files by default
+- Dedup files by default using SHA-256 hash
 
 ## Example
 
@@ -36,15 +36,19 @@ import (
 	"io"
 	"os"
 
-	"github.com/alinz/storage.go/hash"
+	"github.com/alinz/hash.go"
+
 	"github.com/alinz/storage.go/local"
 	"github.com/alinz/storage.go/merkle"
 )
 
 const BlockSize = 10
+const StoragePath = "./merkle_storage"
 
 func main() {
-	local := local.New("./storage")
+	os.MkdirAll(StoragePath, os.ModePerm)
+
+	local := local.New(StoragePath)
 	merkle := merkle.New(local, local, BlockSize)
 
 	switch os.Args[1] {
@@ -60,7 +64,7 @@ func main() {
 
 	case "get":
 		key := os.Args[2]
-		value, err := hash.ParseValueFromString(key)
+		value, err := hash.ValueFromString(key)
 		if err != nil {
 			println(err)
 			os.Exit(1)

@@ -5,7 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/alinz/storage.go/hash"
+	"github.com/alinz/hash.go"
+
 	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/local"
 	"github.com/stretchr/testify/assert"

@@ -8,7 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/alinz/storage.go/hash"
+	"github.com/alinz/hash.go"
+
 	"github.com/alinz/storage.go/merkle"
 )
 
