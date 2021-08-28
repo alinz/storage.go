@@ -13,10 +13,12 @@ type Storage struct {
 	blockSize int64
 	putter    storage.Putter
 	getter    storage.Getter
+	lister    storage.Lister
 }
 
 var _ storage.Putter = (*Storage)(nil)
 var _ storage.Getter = (*Storage)(nil)
+var _ storage.Lister = (*Storage)(nil)
 
 func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	var totalSize int64
@@ -46,7 +48,12 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 		}
 	}
 
-	return tree.root().Value, actualSize, nil
+	rootValue, err := s.setAsRoot(ctx, tree.root().Value)
+	if err != nil {
+		return nil, actualSize, err
+	}
+
+	return rootValue, actualSize, nil
 }
 
 func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, error) {
@@ -69,7 +76,7 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 			return err
 		}
 
-		if fileType == MetaType {
+		if fileType == MetaType || fileType == RootType {
 			metaFile, err := ParseMetaFile(reader)
 			if err != nil {
 				return err
@@ -116,8 +123,57 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 	return pr, nil
 }
 
-func (s *Storage) Verify(ctx context.Context, hashValue []byte) (bool, error) {
+func (s *Storage) List() storage.Next {
+	next := s.lister.List()
+
+	return func(ctx context.Context) ([]byte, error) {
+		for {
+			hashValue, err := next(ctx)
+			if err != nil {
+				return nil, err
+			}
+
+			// done with listing
+			if hashValue == nil {
+				return nil, nil
+			}
+
+			rc, err := s.getter.Get(ctx, hashValue)
+			if err != nil {
+				return nil, err
+			}
+			defer rc.Close()
+
+			_, fileType, err := DetectFileType(rc)
+			if err != nil {
+				return nil, err
+			}
+
+			if fileType != RootType {
+				continue
+			}
+
+			return hashValue, nil
+		}
+	}
+}
+
+func (s *Storage) verify(ctx context.Context, hashValue []byte) (bool, error) {
 	return false, nil
+}
+
+func (s *Storage) setAsRoot(ctx context.Context, hashValue []byte) ([]byte, error) {
+	metaFile, err := s.readMetaFile(ctx, hashValue)
+	if err != nil {
+		return nil, err
+	}
+	metaFile.isRoot = true
+	rootValue, _, err := s.putter.Put(ctx, metaFile)
+	if err != nil {
+		return nil, err
+	}
+
+	return rootValue, nil
 }
 
 func (s *Storage) rebalance(parent []byte, child []byte, side NodeSide) ([]byte, error) {
@@ -160,10 +216,11 @@ func (s *Storage) readMetaFile(ctx context.Context, key []byte) (*MetaFile, erro
 	return metaFile, err
 }
 
-func New(getter storage.Getter, putter storage.Putter, blockSize int64) *Storage {
+func New(getter storage.Getter, putter storage.Putter, lister storage.Lister, blockSize int64) *Storage {
 	return &Storage{
 		getter:    getter,
 		putter:    putter,
+		lister:    lister,
 		blockSize: blockSize,
 	}
 }

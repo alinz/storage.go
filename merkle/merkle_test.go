@@ -51,8 +51,8 @@ func TestMerkleStoragePut(t *testing.T) {
 
 			nodes: []TestNode{
 				{
-					id:       "sha256-2498ad992b02c2f6e21684e8057a01463acad5c75a4e75d095619c556a559e8c",
-					fileType: merkle.MetaType,
+					id:       "sha256-c3309091158720caf364bcb3681830924b4168c663db924c00eb401a20438205",
+					fileType: merkle.RootType,
 					left:     "sha256-25dfd29c09617dcc9852281c030e5b3037a338a4712a42a21c907f259c6412a0",
 					right:    "sha256-0000000000000000000000000000000000000000000000000000000000000000",
 				},
@@ -71,8 +71,8 @@ func TestMerkleStoragePut(t *testing.T) {
 
 			nodes: []TestNode{
 				{
-					id:       "sha256-a2e8f8c5d9f23620c8c4231988eb74ca6f7fa940454b8cbb19d2c2c1333d8316",
-					fileType: merkle.MetaType,
+					id:       "sha256-65276806945c01f329540212084b45ced8f86de1bd8c13410034a2bcd887bf42",
+					fileType: merkle.RootType,
 					left:     "sha256-25dfd29c09617dcc9852281c030e5b3037a338a4712a42a21c907f259c6412a0",
 					right:    "sha256-25dfd29c09617dcc9852281c030e5b3037a338a4712a42a21c907f259c6412a0",
 				},
@@ -92,8 +92,8 @@ func TestMerkleStoragePut(t *testing.T) {
 			nodes: []TestNode{
 				// ROOT
 				{
-					id:       "sha256-f16285f5de972f7414a12523dc870fd6cfc34fd0a6a0764869d7958d4a296278",
-					fileType: merkle.MetaType,
+					id:       "sha256-a05e479475e7161b650e618ac3fc16c9b99c7dbdb96e2b41ab31d5490c76e7d6",
+					fileType: merkle.RootType,
 					left:     "sha256-a2e8f8c5d9f23620c8c4231988eb74ca6f7fa940454b8cbb19d2c2c1333d8316",
 					right:    "sha256-2498ad992b02c2f6e21684e8057a01463acad5c75a4e75d095619c556a559e8c",
 				},
@@ -127,15 +127,8 @@ func TestMerkleStoragePut(t *testing.T) {
 			nodes: []TestNode{
 				// ROOT
 				{
-					id:       "sha256-2a62a61d2efac3ee39a4d883c6eba06d58143847cb96f3e1bcee2406975ff5ae",
-					fileType: merkle.MetaType,
-					left:     "sha256-fe7a3cfc8c5e2ce3334d6ede26904a9fc9f077c685883fe59f782d5cf7239450",
-					right:    "sha256-0000000000000000000000000000000000000000000000000000000000000000",
-				},
-				// ROOT -> LEFT
-				{
-					id:       "sha256-a49390d1e9b2b9333f847773aa0385ae40f6c7dfcd4d82ef21614fefb99b2de9",
-					fileType: merkle.MetaType,
+					id:       "sha256-99dc22058051e167aec7d2930ec098c8d5b09037ab56a8ce3ebdbdedee0f2175",
+					fileType: merkle.RootType,
 					left:     "sha256-fe7a3cfc8c5e2ce3334d6ede26904a9fc9f077c685883fe59f782d5cf7239450",
 					right:    "sha256-fa345019a25f632945e06308a3369199bffbed38ae888d91378857677bc544cd",
 				},
@@ -164,7 +157,7 @@ func TestMerkleStoragePut(t *testing.T) {
 		fmt.Printf("Path for test %d: %s\n", i+1, path)
 
 		localStorage := local.New(path)
-		merkleStorage := merkle.New(localStorage, localStorage, testCase.blockSize)
+		merkleStorage := merkle.New(localStorage, localStorage, localStorage, testCase.blockSize)
 
 		_, n, err := merkleStorage.Put(context.TODO(), bytes.NewReader(testCase.content))
 		assert.NoError(t, err)
@@ -200,10 +193,64 @@ func TestMerkleStoragePut(t *testing.T) {
 	}
 }
 
+func TestMerkleTreeList(t *testing.T) {
+
+	testCases := []struct {
+		contents [][]byte
+		roots    map[string]interface{}
+	}{
+		{
+			contents: [][]byte{
+				[]byte("hello world"),
+				[]byte("hello world 12345"),
+				[]byte("this is one of the kind"),
+			},
+
+			roots: map[string]interface{}{
+				"sha256-99dc22058051e167aec7d2930ec098c8d5b09037ab56a8ce3ebdbdedee0f2175": nil,
+				"sha256-275ecb532fa776f9fc859043b2238a9a094610bc9cb59761e19e3a1c05aecd4f": nil,
+				"sha256-b9dff0f92c0c415b51a04bcb923bc87667c7e9dc8bff4022df1865cd1020080c": nil,
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		tempDir := t.TempDir()
+		localStorage := local.New(tempDir)
+		merkleStorage := merkle.New(localStorage, localStorage, localStorage, 10)
+
+		hashValues := make(map[string]interface{})
+
+		for _, content := range testCase.contents {
+			hashValue, _, err := merkleStorage.Put(context.Background(), bytes.NewReader(content))
+			assert.NoError(t, err)
+
+			hashValues[hash.Format(hashValue)] = nil
+		}
+
+		assert.Equal(t, testCase.roots, hashValues)
+
+		roots := make(map[string]interface{})
+
+		next := merkleStorage.List()
+		for {
+			hashValue, err := next(context.Background())
+			assert.NoError(t, err)
+			if hashValue == nil {
+				break
+			}
+
+			roots[hash.Format(hashValue)] = nil
+		}
+
+		assert.Equal(t, testCase.roots, roots)
+	}
+}
+
 func TestMerkleStorage(t *testing.T) {
 	tempDir := t.TempDir()
 	localStorage := local.New(tempDir)
-	merkleStorage := merkle.New(localStorage, localStorage, 1)
+	merkleStorage := merkle.New(localStorage, localStorage, localStorage, 1)
 
 	fmt.Println(tempDir)
 

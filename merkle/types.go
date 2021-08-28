@@ -20,6 +20,8 @@ func (ft FileType) String() string {
 		return "MetaType"
 	case DataType:
 		return "DataType"
+	case RootType:
+		return "RootType"
 	default:
 		return "unknown type"
 	}
@@ -31,12 +33,14 @@ const (
 	_ FileType = iota
 	MetaType
 	DataType
+	RootType
 )
 
 type MetaFile struct {
 	left     []byte // contains 32 bytes
 	right    []byte // contains 32 bytes
 	readDone bool
+	isRoot   bool
 }
 
 func (m *MetaFile) Left() []byte {
@@ -65,7 +69,12 @@ func (m *MetaFile) Read(b []byte) (int, error) {
 		return 0, io.ErrShortBuffer
 	}
 
-	b[0] = byte(MetaType)
+	if m.isRoot {
+		b[0] = byte(RootType)
+	} else {
+		b[0] = byte(MetaType)
+	}
+
 	copy(b[1:33], m.left)
 	copy(b[33:], m.right)
 	m.readDone = true
@@ -78,7 +87,7 @@ func (m *MetaFile) Write(b []byte) (int, error) {
 		return 0, io.ErrShortWrite
 	}
 
-	if b[0] != byte(MetaType) {
+	if b[0] != byte(MetaType) && b[0] != byte(RootType) {
 		return 0, ErrUnknownFileType
 	}
 
@@ -90,7 +99,11 @@ func (m *MetaFile) Write(b []byte) (int, error) {
 
 func (m *MetaFile) Hash() []byte {
 	hasher := sha256.New()
-	hasher.Write([]byte{byte(MetaType)})
+	if m.isRoot {
+		hasher.Write([]byte{byte(RootType)})
+	} else {
+		hasher.Write([]byte{byte(MetaType)})
+	}
 	hasher.Write(m.left)
 	hasher.Write(m.right)
 	return hasher.Sum(nil)
@@ -142,6 +155,7 @@ func DetectFileType(r io.Reader) (io.Reader, FileType, error) {
 	switch FileType {
 	case MetaType:
 	case DataType:
+	case RootType:
 	default:
 		return nil, 0, ErrUnknownFileType
 	}

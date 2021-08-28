@@ -2,6 +2,7 @@ package local_test
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -35,5 +36,17 @@ func TestLocalStorage(t *testing.T) {
 
 		contentReader.Reset(content)
 		assert.NoError(t, tests.EqualReaders(contentReader, r))
+
+		next := local.List()
+		for {
+			hashValue, err := next(context.Background())
+			assert.NoError(t, err)
+
+			if hashValue == nil {
+				break
+			}
+
+			fmt.Println(hash.Format(hashValue))
+		}
 	})
 }

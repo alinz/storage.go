@@ -22,6 +22,8 @@ type Remover interface {
 	Remove(ctx context.Context, hash []byte) error
 }
 
-type Verifier interface {
-	Verify(ctx context.Context, hash []byte) (bool, error)
+type Next func(ctx context.Context) ([]byte, error)
+
+type Lister interface {
+	List() Next
 }

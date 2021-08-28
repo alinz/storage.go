@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"io"
+	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ type Storage struct {
 var _ storage.Putter = (*Storage)(nil)
 var _ storage.Getter = (*Storage)(nil)
 var _ storage.Remover = (*Storage)(nil)
+var _ storage.Lister = (*Storage)(nil)
 
 func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	// generate random filename
@@ -105,18 +107,59 @@ func (s *Storage) Remove(ctx context.Context, hashValue []byte) error {
 	return os.Remove(filePath)
 }
 
+func (s *Storage) List() storage.Next {
+	done := make(chan struct{}, 1)
+	hashValues := make(chan []byte, 1)
+	errs := make(chan error, 1)
+
+	go func() {
+		defer close(hashValues)
+
+		err := filepath.Walk(s.path, func(path string, info fs.FileInfo, _ error) error {
+			if info.IsDir() {
+				if path == s.path {
+					return nil
+				}
+
+				return filepath.SkipDir
+			}
+
+			hashValue, err := hash.ValueFromString(info.Name())
+			if err != nil {
+				return err
+			}
+
+			select {
+			case <-done:
+				return nil
+			case hashValues <- hashValue:
+			}
+
+			return nil
+		})
+
+		if err != nil {
+			errs <- err
+		}
+	}()
+
+	return func(ctx context.Context) ([]byte, error) {
+		select {
+		case <-ctx.Done():
+			close(done)
+			return nil, context.Canceled
+		case err := <-errs:
+			return nil, err
+		case hashValue := <-hashValues:
+			return hashValue, nil
+		}
+	}
+}
+
 func New(path string) *Storage {
 	return &Storage{
 		path: path,
 	}
-}
-
-func fileExists(path string) bool {
-	_, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return true
 }
 
 func generateRandomString(n int) (string, error) {

@@ -18,7 +18,7 @@ func main() {
 	os.MkdirAll(StoragePath, os.ModePerm)
 
 	local := local.New(StoragePath)
-	merkle := merkle.New(local, local, BlockSize)
+	merkle := merkle.New(local, local, local, BlockSize)
 
 	switch os.Args[1] {
 	case "put":

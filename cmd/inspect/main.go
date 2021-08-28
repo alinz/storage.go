@@ -50,6 +50,8 @@ func showInfo(filepath string) {
 	switch fileType {
 	case merkle.DataType:
 
+	case merkle.RootType:
+		fallthrough
 	case merkle.MetaType:
 		meta, err := merkle.ParseMetaFile(r)
 		if err != nil {
