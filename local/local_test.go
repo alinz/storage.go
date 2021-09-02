@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/alinz/hash.go"
+	"github.com/alinz/storage.go"
 
 	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/local"
@@ -37,13 +38,15 @@ func TestLocalStorage(t *testing.T) {
 		contentReader.Reset(content)
 		assert.NoError(t, tests.EqualReaders(contentReader, r))
 
-		next := local.List()
+		next, cancel := local.List()
+		defer cancel()
+
 		for {
 			hashValue, err := next(context.Background())
-			assert.NoError(t, err)
-
-			if hashValue == nil {
+			if err == storage.ErrIteratorDone {
 				break
+			} else if err != nil {
+				t.Fatal(err)
 			}
 
 			fmt.Println(hash.Format(hashValue))

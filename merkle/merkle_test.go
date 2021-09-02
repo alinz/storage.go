@@ -3,12 +3,14 @@ package merkle_test
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path"
 	"testing"
 
 	"github.com/alinz/hash.go"
+	"github.com/alinz/storage.go"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/alinz/storage.go/internal/tests"
@@ -232,12 +234,15 @@ func TestMerkleTreeList(t *testing.T) {
 
 		roots := make(map[string]interface{})
 
-		next := merkleStorage.List()
+		next, cancel := merkleStorage.List()
+		defer cancel()
 		for {
 			hashValue, err := next(context.Background())
-			assert.NoError(t, err)
-			if hashValue == nil {
+
+			if errors.Is(err, storage.ErrIteratorDone) {
 				break
+			} else if err != nil {
+				t.Fatal(err)
 			}
 
 			roots[hash.Format(hashValue)] = nil

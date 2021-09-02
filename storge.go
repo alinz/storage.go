@@ -22,8 +22,6 @@ type Remover interface {
 	Remove(ctx context.Context, hash []byte) error
 }
 
-type Next func(ctx context.Context) ([]byte, error)
-
 type Lister interface {
-	List() Next
+	List() (IteratorFunc, CancelFunc)
 }

@@ -123,8 +123,8 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 	return pr, nil
 }
 
-func (s *Storage) List() storage.Next {
-	next := s.lister.List()
+func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
+	next, cancel := s.lister.List()
 
 	return func(ctx context.Context) ([]byte, error) {
 		for {
@@ -155,7 +155,7 @@ func (s *Storage) List() storage.Next {
 
 			return hashValue, nil
 		}
-	}
+	}, cancel
 }
 
 func (s *Storage) verify(ctx context.Context, hashValue []byte) (bool, error) {

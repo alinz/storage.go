@@ -56,40 +56,22 @@ func (s *Storage) Remove(ctx context.Context, hashValue []byte) error {
 	return nil
 }
 
-func (s *Storage) List() storage.Next {
-	hashValues := make(chan []byte, 1)
-	errs := make(chan error, 1)
-	done := make(chan struct{}, 1)
-
-	go func() {
-		defer close(hashValues)
-
+func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
+	mapper := func(yield storage.YieldFunc) {
 		for key := range s.keyValue {
 			hashValue, err := hash.ValueFromString(key)
 			if err != nil {
-				errs <- err
+				yield(nil, err)
 				return
 			}
 
-			select {
-			case <-done:
+			if ok := yield(hashValue, err); !ok {
 				return
-			case hashValues <- hashValue:
 			}
-		}
-	}()
-
-	return func(ctx context.Context) ([]byte, error) {
-		select {
-		case <-ctx.Done():
-			close(done)
-			return nil, context.Canceled
-		case hashValue := <-hashValues:
-			return hashValue, nil
-		case err := <-errs:
-			return nil, err
 		}
 	}
+
+	return storage.Iterator(mapper)
 }
 
 func New() *Storage {
