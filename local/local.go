@@ -108,14 +108,14 @@ func (s *Storage) Remove(ctx context.Context, hashValue []byte) error {
 
 func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
 	mapperFiles := func(yield storage.YieldFunc) {
-		var files []os.FileInfo
+		var files []os.DirEntry
 		folder, err := os.Open(s.path)
 		if err != nil {
 			yield(nil, err)
 			return
 		}
 
-		files, err = folder.Readdir(0)
+		files, err = folder.ReadDir(-1)
 		folder.Close()
 		if err != nil {
 			yield(nil, err)

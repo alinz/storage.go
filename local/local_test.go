@@ -53,3 +53,38 @@ func TestLocalStorage(t *testing.T) {
 		}
 	})
 }
+
+func TestListLargeNumberofFiles(t *testing.T) {
+	tempDir := t.TempDir()
+	local := local.New(tempDir)
+
+	filesCount := 100_000
+
+	// prepare the test by generating a lot of content/files
+	for i := 0; i < filesCount; i++ {
+		local.Put(context.TODO(), strings.NewReader(fmt.Sprintf("%d", i)))
+	}
+
+	fmt.Printf("Completed generating %d files\n", filesCount)
+
+	// create the storage
+	next, cancel := local.List()
+	defer cancel()
+
+	count := 0
+
+	for {
+		_, err := next(context.Background())
+		if err == storage.ErrIteratorDone {
+			break
+		}
+
+		count++
+		if count%10_000 == 0 {
+			fmt.Printf("Procced %d files\n", count)
+		}
+		assert.NoError(t, err)
+	}
+
+	assert.Equal(t, count, 100_000)
+}
