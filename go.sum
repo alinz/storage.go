@@ -1,3 +1,5 @@
+github.com/akrylysov/pogreb v0.10.1 h1:FqlR8VR7uCbJdfUob916tPM+idpKgeESDXOA1K0DK4w=
+github.com/akrylysov/pogreb v0.10.1/go.mod h1:pNs6QmpQ1UlTJKDezuRWmaqkgUE2TuU0YTWyqJZ7+lI=
 github.com/alinz/crypto.go v0.0.0-20210829214431-bb417bdd7b42 h1:4mnp68lr1nApC2zYO9u5hBj6+g8VoyJiGVvhAA/48Z4=
 github.com/alinz/crypto.go v0.0.0-20210829214431-bb417bdd7b42/go.mod h1:MUTG4do0obQe/2oT9p3hslF1hF3gOnDwRvjnK5uQi4U=
 github.com/alinz/hash.go v0.0.0-20210826155239-e949304132fd h1:PzNl7pQyNta+Q191BmQFjGgtYpKI0KCzs139tBp0P9w=
