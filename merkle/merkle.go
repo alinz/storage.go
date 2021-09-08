@@ -126,25 +126,31 @@ func (s *Storage) Get(ctx context.Context, hashValue []byte) (io.ReadCloser, err
 func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
 	next, cancel := s.lister.List()
 
+	// helper fucntion is extracted so defer rc.Close() can be called
+	// inside the loop without compounding the number of open files
+	helper := func(ctx context.Context) ([]byte, FileType, error) {
+		hashValue, err := next(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		rc, err := s.getter.Get(ctx, hashValue)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer rc.Close()
+
+		_, fileType, err := DetectFileType(rc)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		return hashValue, fileType, nil
+	}
+
 	return func(ctx context.Context) ([]byte, error) {
 		for {
-			hashValue, err := next(ctx)
-			if err != nil {
-				return nil, err
-			}
-
-			// done with listing
-			if hashValue == nil {
-				return nil, nil
-			}
-
-			rc, err := s.getter.Get(ctx, hashValue)
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-
-			_, fileType, err := DetectFileType(rc)
+			hashValue, fileType, err := helper(ctx)
 			if err != nil {
 				return nil, err
 			}
