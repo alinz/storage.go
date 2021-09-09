@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/alinz/storage.go"
+	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/kv/pogreb"
 )
 
@@ -62,5 +63,20 @@ func TestPogrebStorage(t *testing.T) {
 		assert.NoError(t, err)
 		_, err = memory.Get(context.TODO(), expectedHashValue)
 		assert.Error(t, err, storage.ErrNotFound)
+	})
+
+	t.Run("put large values to the database", func(t *testing.T) {
+		content := make([]byte, 1024*1024)
+		for i := 0; i < len(content); i++ {
+			content[i] = byte(i % 256)
+		}
+
+		hashValue, n, err := memory.Put(context.Background(), bytes.NewReader(content))
+		assert.NoError(t, err)
+		assert.Equal(t, int64(len(content)), n)
+
+		rc, err := memory.Get(context.TODO(), hashValue)
+		assert.NoError(t, err)
+		assert.NoError(t, tests.EqualReaders(bytes.NewReader(content), rc))
 	})
 }

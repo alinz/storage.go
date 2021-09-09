@@ -30,6 +30,10 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 		return nil, 0, err
 	}
 
+	if n == 0 {
+		return nil, 0, io.EOF
+	}
+
 	hashValue := hr.Hash()
 
 	err = s.db.Put(hashValue, buffer.Bytes())
@@ -62,9 +66,6 @@ func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
 		for {
 			key, _, err := it.Next()
 			if errors.Is(err, pogreb.ErrIterationDone) {
-				return
-			} else if err != nil {
-				yield(nil, err)
 				return
 			}
 
