@@ -4,6 +4,8 @@ github.com/alinz/crypto.go v0.0.0-20210829214431-bb417bdd7b42 h1:4mnp68lr1nApC2z
 github.com/alinz/crypto.go v0.0.0-20210829214431-bb417bdd7b42/go.mod h1:MUTG4do0obQe/2oT9p3hslF1hF3gOnDwRvjnK5uQi4U=
 github.com/alinz/hash.go v0.0.0-20210826155239-e949304132fd h1:PzNl7pQyNta+Q191BmQFjGgtYpKI0KCzs139tBp0P9w=
 github.com/alinz/hash.go v0.0.0-20210826155239-e949304132fd/go.mod h1:uRSiRmHsffw1dpzfC2QufUZ4AcB4I+etV/wg4pZcfm4=
+github.com/boltdb/bolt v1.3.1 h1:JQmyP4ZBrce+ZQu0dY660FMfatumYDLun9hBCUVIkF4=
+github.com/boltdb/bolt v1.3.1/go.mod h1:clJnj/oiGkjum5o1McbSZDSLxVThjynRyGBgiAx27Ps=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
