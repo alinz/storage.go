@@ -19,6 +19,7 @@ var _ storage.Putter = (*Storage)(nil)
 var _ storage.Getter = (*Storage)(nil)
 var _ storage.Remover = (*Storage)(nil)
 var _ storage.Lister = (*Storage)(nil)
+var _ storage.Closer = (*Storage)(nil)
 
 func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 	hr := hash.NewReader(r)
@@ -76,6 +77,10 @@ func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
 	}
 
 	return storage.Iterator(mapper)
+}
+
+func (s *Storage) Close() error {
+	return s.db.Close()
 }
 
 func New(filepath string) (*Storage, error) {

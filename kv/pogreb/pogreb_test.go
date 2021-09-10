@@ -22,6 +22,7 @@ func TestPogrebStorage(t *testing.T) {
 
 	memory, err := pogreb.New(filepath)
 	assert.NoError(t, err)
+	defer memory.Close()
 
 	content := []byte("hello")
 	contentSize := int64(len(content))

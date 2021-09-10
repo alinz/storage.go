@@ -24,6 +24,7 @@ var _ storage.Putter = (*Storage)(nil)
 var _ storage.Getter = (*Storage)(nil)
 var _ storage.Remover = (*Storage)(nil)
 var _ storage.Lister = (*Storage)(nil)
+var _ storage.Closer = (*Storage)(nil)
 
 func (s *Storage) put(ctx context.Context, conn *sqlite.Conn, r io.Reader) (hashValue []byte, n int64, err error) {
 	defer sqlitex.Save(conn)(&err)
@@ -223,6 +224,10 @@ func (s *Storage) createTable() (err error) {
 	`)
 
 	return sqlitex.ExecScript(conn, sql)
+}
+
+func (s *Storage) Close() error {
+	return s.pool.Close()
 }
 
 func New(stringConn string, poolSize int, maxDataSize int64) (*Storage, error) {

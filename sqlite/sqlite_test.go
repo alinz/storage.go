@@ -19,6 +19,7 @@ func TestSqlitePut(t *testing.T) {
 
 	backend, err := sqlite.NewMemory(2, 1024*1024)
 	assert.NoError(t, err)
+	defer backend.Close()
 
 	content := []byte("hello world")
 	expectedHashValue, err := hash.ValueFromString("sha256-b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")

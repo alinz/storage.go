@@ -25,3 +25,7 @@ type Remover interface {
 type Lister interface {
 	List() (IteratorFunc, CancelFunc)
 }
+
+type Closer interface {
+	Close() error
+}

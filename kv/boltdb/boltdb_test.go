@@ -22,6 +22,7 @@ func TestBoltdbStorage(t *testing.T) {
 
 	bolt, err := boltdb.New(filepath)
 	assert.NoError(t, err)
+	defer bolt.Close()
 
 	content := []byte("hello")
 	contentSize := int64(len(content))
