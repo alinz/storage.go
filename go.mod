@@ -8,4 +8,5 @@ require (
 	github.com/alinz/hash.go v0.0.0-20210826155239-e949304132fd
 	github.com/boltdb/bolt v1.3.1
 	github.com/stretchr/testify v1.7.0
+	zombiezen.com/go/sqlite v0.7.0
 )
