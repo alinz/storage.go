@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/alinz/hash.go"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/alinz/storage.go"
 	"github.com/alinz/storage.go/internal/tests"
 	"github.com/alinz/storage.go/sqlite"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSqlitePut(t *testing.T) {
@@ -22,10 +24,11 @@ func TestSqlitePut(t *testing.T) {
 	defer backend.Close()
 
 	content := []byte("hello world")
-	expectedHashValue, err := hash.ValueFromString("sha256-b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")
+	expectedHashValue, err := hash.ValueFromString("sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 	assert.NoError(t, err)
 
 	hashValue, n, err := backend.Put(context.TODO(), bytes.NewReader(content))
+	fmt.Println(hash.Format(hashValue))
 	assert.NoError(t, err)
 	assert.Equal(t, n, int64(len(content)))
 	assert.Equal(t, expectedHashValue, hash.Value(hashValue))

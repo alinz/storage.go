@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
+	"github.com/alinz/hash.go"
 	"zombiezen.com/go/sqlite"
 	"zombiezen.com/go/sqlite/sqlitex"
 
-	"github.com/alinz/hash.go"
 	"github.com/alinz/storage.go"
 )
 
@@ -26,22 +26,46 @@ var _ storage.Remover = (*Storage)(nil)
 var _ storage.Lister = (*Storage)(nil)
 var _ storage.Closer = (*Storage)(nil)
 
+func (s *Storage) hashValueExists(conn *sqlite.Conn, hashValue []byte) (bool, error) {
+	stmt, err := conn.Prepare("SELECT hash_value FROM blobs WHERE hash_value = $hash_value;")
+	if err != nil {
+		return false, err
+	}
+	defer stmt.Finalize()
+
+	stmt.SetText("$hash_value", hash.Format(hashValue))
+
+	return stmt.Step()
+}
+
 func (s *Storage) put(ctx context.Context, conn *sqlite.Conn, r io.Reader) (hashValue []byte, n int64, err error) {
 	defer sqlitex.Save(conn)(&err)
+	defer s.buffer.Reset()
 
-	s.buffer.Reset()
+	hr := hash.NewReader(r)
 	n, err = io.Copy(s.buffer, r)
 	if err != nil {
-		return nil, n, err
+		return nil, 0, err
 	}
 
-	stmt, err := conn.Prepare("INSERT INTO blobs (data) VALUES ($data);")
+	hashValue = hr.Hash()
+
+	exists, err := s.hashValueExists(conn, hashValue)
+	if err != nil {
+		return nil, 0, err
+	} else if exists {
+		// if the hash value already exists, we don't need to do anything
+		return hashValue, n, nil
+	}
+
+	stmt, err := conn.Prepare("INSERT INTO blobs (hash_value, data) VALUES ($hash_value, $data);")
 	if err != nil {
 		return nil, 0, err
 	}
 	defer stmt.Finalize()
 
 	stmt.SetZeroBlob("$data", n)
+	stmt.SetText("$hash_value", hash.Format(hashValue))
 
 	if _, err := stmt.Step(); err != nil {
 		return nil, 0, err
@@ -54,24 +78,8 @@ func (s *Storage) put(ctx context.Context, conn *sqlite.Conn, r io.Reader) (hash
 	}
 	defer b.Close()
 
-	hr := hash.NewReader(s.buffer)
-	n, err = io.Copy(b, hr)
+	n, err = io.Copy(b, s.buffer)
 	if err != nil {
-		return nil, n, err
-	}
-
-	hashValue = hr.Hash()
-
-	updateHashValueStmt, err := conn.Prepare("UPDATE blobs SET hash_value = $hash_value WHERE rowid = $rowid;")
-	if err != nil {
-		return nil, n, err
-	}
-	defer updateHashValueStmt.Finalize()
-
-	updateHashValueStmt.SetText("$hash_value", hash.Format(hashValue))
-	updateHashValueStmt.SetInt64("$rowid", rowid)
-
-	if _, err := updateHashValueStmt.Step(); err != nil {
 		return nil, n, err
 	}
 
