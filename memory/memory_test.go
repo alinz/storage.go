@@ -7,9 +7,9 @@ import (
 	"testing"
 
 	"github.com/alinz/hash.go"
-	"github.com/alinz/storage.go"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/alinz/storage.go"
 	"github.com/alinz/storage.go/memory"
 )
 

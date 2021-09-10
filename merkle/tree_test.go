@@ -3,8 +3,9 @@ package merkle_test
 import (
 	"testing"
 
-	"github.com/alinz/storage.go/merkle"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/alinz/storage.go/merkle"
 )
 
 func TestMerkleTreeCheckCallbackCalls(t *testing.T) {

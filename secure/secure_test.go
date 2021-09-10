@@ -7,9 +7,10 @@ import (
 	"io/ioutil"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/alinz/storage.go/memory"
 	"github.com/alinz/storage.go/secure"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestSecureStorage(t *testing.T) {
