@@ -11,7 +11,7 @@ var (
 )
 
 type Putter interface {
-	Put(ctx context.Context, r io.Reader) ([]byte, int64, error)
+	Put(ctx context.Context, r io.Reader) (hash []byte, n int64, err error)
 }
 
 type Getter interface {

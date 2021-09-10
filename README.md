@@ -18,11 +18,22 @@ type Getter interface {
 type Remover interface {
 	Remove(ctx context.Context, hash []byte) error
 }
+
+type Lister interface {
+	List() (IteratorFunc, CancelFunc)
+}
+
+type Closer interface {
+	Close(ctx context.Context, hash []byte) error
+}
 ```
 
 - Optimized merkle tree for fast write
 - Support io.Reader out of the box
 - Dedup files by default using SHA-256 hash
+- Secure Read and Write using ChaCha20Stream
+- Lots of backend drivers (memory, file, boltdb, pogreb, sqlite)
+
 
 ## Example
 
