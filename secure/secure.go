@@ -32,29 +32,12 @@ func (s *Storage) Put(ctx context.Context, r io.Reader) ([]byte, int64, error) {
 }
 
 func (s *Storage) Get(ctx context.Context, hash []byte) (io.ReadCloser, error) {
-	pr, pw := io.Pipe()
-
 	rc, err := s.getter.Get(ctx, hash)
 	if err != nil {
 		return nil, err
 	}
 
-	r, err := crypto.NewChaCha20Stream(rc, s.secretKey)
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		_, err := io.Copy(pw, r)
-		if err != nil {
-			pw.CloseWithError(err)
-			return
-		}
-
-		pw.Close()
-	}()
-
-	return pr, nil
+	return crypto.NewChaCha20Stream(rc, s.secretKey)
 }
 
 func New(putter storage.Putter, getter storage.Getter, secretKey []byte) *Storage {
