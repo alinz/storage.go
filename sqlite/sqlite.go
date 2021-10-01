@@ -27,7 +27,7 @@ var _ storage.Lister = (*Storage)(nil)
 var _ storage.Closer = (*Storage)(nil)
 
 func (s *Storage) hashValueExists(conn *sqlite.Conn, hashValue []byte) (bool, error) {
-	stmt, err := conn.Prepare("SELECT hash_value FROM blobs WHERE hash_value = $hash_value;")
+	stmt, err := conn.Prepare("SELECT hash_value FROM blobs WHERE hash_value = $hash_value AND length(data) > 0;")
 	if err != nil {
 		return false, err
 	}
@@ -43,7 +43,7 @@ func (s *Storage) put(ctx context.Context, conn *sqlite.Conn, r io.Reader) (hash
 	defer s.buffer.Reset()
 
 	hr := hash.NewReader(r)
-	n, err = io.Copy(s.buffer, r)
+	n, err = io.Copy(s.buffer, hr)
 	if err != nil {
 		return nil, 0, err
 	}

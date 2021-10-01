@@ -141,7 +141,9 @@ func (s *Storage) List() (storage.IteratorFunc, storage.CancelFunc) {
 		defer rc.Close()
 
 		_, fileType, err := DetectFileType(rc)
-		if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, 0, storage.ErrIteratorDone
+		} else if err != nil {
 			return nil, 0, err
 		}
 
