@@ -24,7 +24,7 @@ func TestSqlitePut(t *testing.T) {
 	defer backend.Close()
 
 	content := []byte("hello world")
-	expectedHashValue, err := hash.ValueFromString("sha256-e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	expectedHashValue, err := hash.ValueFromString("sha256-b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9")
 	assert.NoError(t, err)
 
 	hashValue, n, err := backend.Put(context.TODO(), bytes.NewReader(content))
